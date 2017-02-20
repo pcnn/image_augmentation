@@ -9,7 +9,7 @@ This package depends on OpenCV and Numpy libraries.
 
 ## Examples
 Following are result of degrading the above images using functions in *image_degrade* module.
-'''
+```python
 gaussian_noise(im,mu=0, sigma=30, sparse_prob=0.1)
-'''
+```
 ![alt tag](degraded_gaussian.png)
