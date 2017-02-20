@@ -1,3 +1,7 @@
+__author__ = "Hamed H. Aghdam"
+__credits__ = "Hamed H. Aghdam"
+__version__ = "1.0.0"
+
 import cv2
 import numpy as np
 
@@ -7,17 +11,19 @@ def _check_im(im):
     :param im: image written by cv2.imread function.
     :return: None
     '''
-
-    if im.dtype != 'uint8' or im.ndim != 3:
-        raise Exception('Image must be a 3 channel uint array.')
+    assert im.dtype == 'uint8' and im.ndim == 3, 'Image must be a 3 channel uint array.'
+    # if im.dtype != 'uint8' or im.ndim != 3:
+    #     raise Exception('Image must be a 3 channel uint array.')
 
 def _check_rand(rand):
-    if (rand is not None) and (not isinstance(rand, np.random.RandomState)):
-        raise Exception('rand has to be an instance of np.random.RandomState')
+    assert (rand is None) or (isinstance(rand, np.random.RandomState)), 'rand has to be an instance of np.random.RandomState'
+    # if (rand is not None) and (not isinstance(rand, np.random.RandomState)):
+    #     raise Exception('rand has to be an instance of np.random.RandomState')
 
 def _check_prop(prop):
-    if not(0 < prop < 1):
-        raise  Exception('sparse_prob has to be in interval [0,1]')
+    assert 0 < prop < 1, 'prob has to be in interval [0,1]'
+    # if not(0 < prop < 1):
+    #     raise  Exception('sparse_prob has to be in interval [0,1]')
 
 def sparsify (mat, sparse_prob=0.2, rand_object=None):
     '''
@@ -141,6 +147,7 @@ def pick(im, prob, win_size=(3, 3), rand_object=None):
     :param rand_object: (optional) An instance of numpy.random.RandomState object.
     :return: degraded image.
     '''
+    _check_prop(prob)
     if isinstance(win_size, tuple) is False or len(win_size) < 2:
         raise Exception('win_size must be a *tuple* containing only 2 elemens.')
 
@@ -246,7 +253,7 @@ def hue(im, prob, d_min, d_max, rand_object=None):
     im_hsv = cv2.add(im_hsv, noise_mask, dtype=cv2.CV_8UC3)
     return cv2.cvtColor(im_hsv, code=cv2.cv.CV_HSV2BGR)
 
-def hsv(im, prob, d_min, d_max, h_scale=1, s_scale=1, v_scale=1, rand_object=None):
+def hsv_uniform(im, prob, d_min, d_max, h_scale=1, s_scale=1, v_scale=1, rand_object=None):
     '''
     It randomle changes the hue, saturation and value componenet of image in HSV color space. By setting X_scale to zero its corresponding channel will not be modified.
     :param im: Imgae that must be degraded.
@@ -267,6 +274,37 @@ def hsv(im, prob, d_min, d_max, h_scale=1, s_scale=1, v_scale=1, rand_object=Non
         noise_mask = np.random.uniform(d_min, d_max, im.shape)
     else:
         noise_mask = rand_object.uniform(d_min, d_max, im.shape)
+    noise_mask[:,:,0] *= h_scale
+    noise_mask[:,:,1] *= s_scale
+    noise_mask[:,:,2] *= v_scale
+    if prob is not None:
+        noise_mask = sparsify(noise_mask, prob)
+
+    im_hsv = cv2.add(im_hsv, noise_mask, dtype=cv2.CV_8UC3)
+
+    return cv2.cvtColor(im_hsv, code=cv2.cv.CV_HSV2BGR)
+
+def hsv_gaussian(im, prob, mue, sigma, h_scale=1, s_scale=1, v_scale=1, rand_object=None):
+    '''
+    It randomle changes the hue, saturation and value componenet of image in HSV color space. By setting X_scale to zero its corresponding channel will not be modified.
+    :param im: Imgae that must be degraded.
+    :param prob: Probability of degrading a pixel.
+    :param mue: Mean of Gaussian distribution.
+    :param sigma: variance of Gaussian distribution.
+    :param h_scale: Scale of Hue component.
+    :param s_scale: Scale of saturation component.
+    :param v_scale: Scale of Value component.
+    :param rand_object: (optional) An instance of numpy.random.RandomState object.
+    :return: Degraded image.
+    '''
+    _check_im(im)
+    _check_prop(prob)
+    _check_rand(rand_object)
+    im_hsv = cv2.cvtColor(im, code=cv2.cv.CV_BGR2HSV)
+    if rand_object is None:
+        noise_mask = np.random.normal(mue, sigma, im.shape)
+    else:
+        noise_mask = rand_object.normal(mue, sigma, im.shape)
     noise_mask[:,:,0] *= h_scale
     noise_mask[:,:,1] *= s_scale
     noise_mask[:,:,2] *= v_scale
@@ -300,18 +338,24 @@ def reduce_noise_effect_sparsify(im_original, im_noisy, keep_prob, alpha=0.0, ra
 
 if __name__ == '__main__':
     im = cv2.imread('nature.jpg')
-    # im_noise = gaussian_noise(im, 0, 30, sparse_prob=0.1)
-    # im_noise = uniform_noise(im, -30, 30, sparse_prob=0.1)
-    # im_noise = gaussian_noise_shared(im, 0, 30, sparse_prob=0.1)
-    # im_noise = uniform_noise_shared(im, -30, 30, sparse_prob=0.1)
-    im_noise = pick(im, 0.2, (9,9))
-    # im_noise = dropout(im, 0.2)
-    # im_noise = hurl(im, 0.2)
-    # im_noise = hue(im, 0.1, -50,50)
-    # im_noise = hsv(im, 0.1, -150,150,0,0,1)
-    cv2.namedWindow('noise_pick', cv2.WINDOW_AUTOSIZE)
-    cv2.imshow('noise_pick', im_noise)
-    cv2.waitKey()
+    im = cv2.resize(im, dsize=None, fx= 0.4, fy= 0.4)
+    # im_noise = gaussian_noise(im,mu=0, sigma=30, sparse_prob=0.1)
+    # im_noise = uniform_noise(im, d_min=-60, d_max=60, sparse_prob=0.1)
+    # im_noise = gaussian_noise_shared(im, mu=0, sigma=30, sparse_prob=0.1)
+    # im_noise = uniform_noise_shared(im, d_min=-60, d_max=60, sparse_prob=0.1)
+    # im_noise = pick(im, 0.9, (5,5))
+    # im_noise = dropout(im, prob=0.3)
+    # im_noise = hurl(im, prob=0.2)
+    # im_noise = hue(im, prob=0.1, d_min=-20,d_max=20)
+    # im_noise = hsv_uniform(im, prob=0.1, d_min=-50,d_max=50,h_scale=0,s_scale=0,v_scale=1)
+    im_noise = hsv_gaussian(im, prob=0.1, mue=-30, sigma=20, h_scale=0, s_scale=0, v_scale=1)
+
+    cv2.namedWindow('degraded', cv2.WINDOW_AUTOSIZE)
+    cv2.imshow('degraded', im_noise)
+    ch = cv2.waitKey()
+    if ch == 115:
+        print 'Saving on disk!'
+        cv2.imwrite('degraded_hsv_gauss_value.png', im_noise)
     cv2.destroyAllWindows()
 
 
